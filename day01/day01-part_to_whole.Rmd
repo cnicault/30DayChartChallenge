@@ -1,0 +1,165 @@
+---
+title: "Day1 : comparisons part to whole"
+author: "Christophe Nicault"
+date: "01/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_packages}
+
+library(tidyverse)
+library(scales)
+library(patchwork)
+library(showtext)
+
+
+font_add_google("Oswald", "oswald")
+font_add_google("Roboto Condensed", "roboto condensed")
+font_add_google("Share Tech Mono", "techmono")
+
+showtext_opts(dpi = 320)
+showtext_auto(enable = TRUE)
+
+```
+
+
+```{r load_data}
+
+energy_types <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-08-04/energy_types.csv')
+
+
+```
+
+```{r colors}
+
+grey_pal <- c("Fossil" = "#8C8C8C",  "Nuclear" = "#D9D9D9",  "Renewable" = "#14BB84")
+renewable_pal <- c("Hydro" = "#45BF55", "Wind" = "#168039", "Solar" = "#044D29", "Geothermal" = "#00261C")
+
+update_geom_defaults("text", list(family = "roboto condensed", color = "#183170"))
+
+```
+
+
+```{r all_energy_plt}
+
+
+#  recode types
+energy <- energy_types %>%
+  filter(country == "FR") %>%
+  mutate(type2 = recode(type, "Conventional thermal" = "Fossil", "Wind" = "Renewable", "Hydro" = "Renewable", "Pumped hydro power" = "Renewable", "Solar"  = "Renewable", "Geothermal"  = "Renewable"),
+         type = recode(type, "Pumped hydro power" = "Hydro"),
+         production = `2018`)
+
+
+
+allenergy <- energy %>%
+  group_by(country_name, type2) %>%
+  summarise(total = sum(production)) %>%
+  ungroup() %>%
+  arrange(desc(total)) %>%
+  mutate(type2 = fct_reorder(type2, total),
+         posy = cumsum(total)) %>%
+  filter(type2 != "Other")
+
+
+all_energy_plt <-  allenergy %>%
+  bind_cols(tibble(textx = c(200000, 450000, 545000),
+                   posyend = c(393153, 506811, 600000))) %>%
+  mutate(label = glue::glue("{comma(floor(total))} GWh"),
+         axis_label = "All sources\nof energy") %>%
+  ggplot(aes(axis_label, total)) +
+  geom_col(aes(fill = type2), width = 1) +
+  geom_segment(aes(x = 0.5, xend = 0, y = posy, yend = posy), size = 0.3) +
+  geom_segment(aes(x = 0, xend = -0.3, y = posy, yend = posyend), linetype = "12", size = 0.3) +
+  geom_segment(aes(x = -0.3, xend = -1.7, y = posyend, yend = posyend), linetype = "12", size = 0.3) +
+  geom_text(aes(x = -1.9, y = posyend, label = label), hjust = 1, size = 3) +
+  geom_text(aes(x = -1.3, y = textx , label = type2), hjust = 0, size = 4) +
+  scale_fill_manual(values = grey_pal) +
+  scale_x_discrete(expand = expansion(mult = c(5, 0))) +
+  scale_y_continuous(limits = c(0, 700000))+
+  guides(fill = FALSE) +
+  theme_void()+
+  theme(axis.text.x = element_text(color = "#183170", size = 10))
+
+
+```
+
+
+```{r zoom_plot}
+
+poly <- tibble(x = c(0, 2, 2, 0),
+               y = c(393153, 0, 560000, 506811))
+
+zoom <-  ggplot() +
+  geom_polygon(data = poly, aes(x, y), fill = "#41CFA0", alpha = 0.3) +
+  annotate("segment", x = 0, xend = 2, y = 393153, yend = 0, color = "#41CFA0") +
+  annotate("segment", x = 0, xend = 2, y = 506811, yend = 560000, color = "#41CFA0") +
+  scale_y_continuous(limits = c(0, 700000))+
+  scale_x_continuous(expand = expansion(mult = c(0, 0))) +
+  guides(fill = FALSE) +
+  theme_void()
+
+```
+
+```{r renewable_plot}
+
+
+
+renewable <- energy %>%
+  filter(type2 == "Renewable") %>%
+  group_by(country_name, type) %>%
+  summarise(production = sum(production)) %>%
+  ungroup() %>%
+  arrange(desc(production)) %>%
+  mutate(type = fct_reorder(type, production),
+         posy = cumsum(production))
+
+
+renewable_plt <- renewable %>%
+  bind_cols(tibble(posyend = c(77789, 103923, 120000, 140000),
+                   textx = c(35000, 85000, 113000, 130000))) %>%
+  mutate(label = glue::glue("{comma(floor(production))} GWh"),
+         axis_label = "Renewable\nenergy") %>%
+  ggplot(aes(axis_label, production)) +
+  geom_col(aes(fill = type), width = 1) +
+  geom_segment(aes(x = 1.5, xend = 2, y = posy, yend = posy), size = 0.3) +
+  geom_segment(aes(x = 2, xend = 2.3, y = posy, yend = posyend), linetype = "12", size = 0.3) +
+  geom_segment(aes(x = 2.3, xend = 4, y = posyend, yend = posyend), linetype = "12", size = 0.3) +
+  geom_text(aes(x = 4.1, y = posyend, label = label), hjust = 0, size = 3) +
+  geom_text(aes(x = 2.4, y = textx, label = type), hjust = 0, size = 4) +
+  scale_fill_manual(values = renewable_pal) +
+  scale_x_discrete(expand = expansion(mult = c(0, 5))) +
+  guides(fill = FALSE) +
+  theme_void()+
+  theme(axis.text.x = element_text(color = "#183170", size = 10))
+```
+
+
+```{r assemble}
+
+final <- all_energy_plt + zoom + renewable_plt +
+  plot_layout(ncol = 3, width = c(5, 2, 5)) +
+  plot_annotation(
+      title = "Part of renewable energy in France",
+      subtitle = "for eletricity production",
+      caption = "#30DayChartChallenge | Viz: Christophe Nicault | Data: Eurostat Energy",
+      theme = theme(
+        plot.title = element_text(family = "oswald", size = 18, color = "#183170", hjust = 0.5, face = "bold", margin = margin(10,0,5,0)),
+        plot.subtitle = element_text(family = "oswald", color = "#183170", size = 12, hjust = 0.5, margin = margin(5,0,5,0)),
+        plot.caption = element_text(family = "techmono", color = "#183170", size = 8, margin = margin(20,0,0,0))      
+      )
+    )
+
+ragg::agg_png(here::here("render", paste0("30DayChartChallenge_day1", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 8, height = 4, units = "in")
+
+final
+  
+dev.off()
+
+```
+
