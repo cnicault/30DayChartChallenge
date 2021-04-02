@@ -1,5 +1,13 @@
 # #30DayChartChallenge
 
+## Day 2 - Pictogram
+
+Part of the main source of renewable energy
+
+![main source of renewable energy](/day02/day02_pictogram.png)
+
+----
+
 ## Day 1 - Part-to-Whole
 
 Part of renewable energy in France for electricity production

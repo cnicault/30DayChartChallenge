@@ -1,0 +1,152 @@
+---
+title: "Day2: Pictogram"
+author: "Christophe Nicault"
+date: "02/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_packages}
+
+library(tidyverse)
+library(glue)
+library(patchwork)
+library(showtext)
+library(ggimage)
+library(ggfx)
+library(geofacet)
+
+
+font_add_google("Oswald", "oswald")
+font_add_google("Roboto Condensed", "roboto condensed")
+font_add_google("Share Tech Mono", "techmono")
+
+showtext_opts(dpi = 320)
+showtext_auto(enable = TRUE)
+
+```
+
+
+```{r load_data}
+
+energy_types <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-08-04/energy_types.csv')
+
+
+```
+
+```{r data_prep}
+
+#  recode types
+energy <- energy_types %>%
+  mutate(type2 = recode(type, "Conventional thermal" = "Fossil", "Wind" = "Renewable", "Hydro" = "Renewable", "Pumped hydro power" = "Renewable", "Solar"  = "Renewable", "Geothermal"  = "Renewable"),
+         type = recode(type, "Pumped hydro power" = "Hydro"),
+         country = recode(country, "UK" = "GB", "EL" = "GR"),
+         production = `2018`)
+
+
+energy <- energy %>%
+  filter(type2 == "Renewable") %>%
+  group_by(country, type) %>%
+  summarise(total = sum(production)) %>%
+  ungroup() %>%
+  group_by(country) %>%
+  mutate(perc = total / sum(total)) %>%
+  slice_max(perc) %>%
+  ungroup() %>%
+  bind_rows(list("country" = "IS", "type" = "Hydro", total = 13722, perc = 0.73),
+            list("country" = "MT", "type" = "Thermal", total = 0, perc = 0),
+            list("country" = "CH", "type" = "Hydro", total = NA, perc = 0.614))
+
+europe_countries_grid1 <-   europe_countries_grid1 %>%
+  mutate(name = case_when(
+           code == "MK" ~ "Macedonia",
+           code == "BA" ~ "Bosnia and\n Herzegovina",
+           TRUE ~ name
+         )) %>%
+    filter(!code %in% c("RU", "MD", "BY", "GE"))
+
+```
+
+```{r colors}
+
+palette <- c("Hydro" = "#009DE0", "Wind" = "#60BD19", "Solar" = "#FFCC24", "Thermal" = "#7e7e7e")
+
+```
+
+
+```{r geofacet_map}
+
+main <- energy %>%
+  filter(!country %in% c("RU", "MD", "BY", "GE")) %>%
+  mutate(img = here::here("day02", "img", glue("{str_to_lower(type)}.png")),
+         code = country) %>%
+  left_join(europe_countries_grid1) %>%
+  mutate(name = case_when(
+           country == "MK" ~ "Macedonia",
+           country == "BA" ~ "Bosnia and\n Herzegovina",
+           TRUE ~ name
+         )) %>%
+  ggplot() +
+  as_reference(
+    geom_col(aes(x = 1, y = perc, fill = type)),
+    id = "col"
+  )  +
+  with_blend(
+    geom_image(aes(x = 1, y = 0.5, image = img), size = 1),
+    bg_layer = "col",
+    blend_type = "overlay"
+  )  +
+  scale_y_continuous(limits = c(0,1)) +
+  scale_fill_manual(values = palette) +
+  facet_geo(~code, grid = "europe_countries_grid1", label = "name", strip.position = "bottom", labeller = label_wrap_gen(width = 12))  +
+  guides(fill = FALSE) +
+  labs(title = "Part of the main source of renewable energy",
+       subtitle = "The pictograms represents the main source of renewable energy.\n The height of the color bar represent the % of this energy amongst all renewable electricity production.",
+       caption = "#30DayChartChallenge | Viz: Christophe Nicault | Data: Eurostat Energy")+
+  theme_void() +
+  theme(plot.margin = margin(0,100,0,0),
+        panel.spacing = unit(0,"mm"),
+        plot.title = element_text(family = "oswald", size = 24, color = "#183170", hjust = 0.5, face = "bold", margin = margin(10,0,5,0)),
+        plot.subtitle = element_text(family = "oswald", color = "#183170", size = 18, hjust = 0.5, margin = margin(5,0,15,0)),
+        plot.caption = element_text(family = "techmono", color = "#183170", size = 14, margin = margin(20,0,0,0)),
+        strip.text.x = element_text(family = "roboto condensed", size = 12)
+        )
+
+
+```
+
+```{r legend}
+
+
+legend_df <- tibble(posy = seq(1,4), type = c("Hydro", "Wind", "Solar", "Thermal"))
+
+legend_df <- legend_df %>%
+  mutate(img = here::here("day02", "img", glue("{str_to_lower(type)}.png")))
+
+legend <- legend_df %>%
+  ggplot()+
+  geom_image(aes(x = 1, y = posy, image = img), size = 0.14) +
+  geom_text(aes(x = 1, y = posy - 0.4, label = type), size = 6) +
+  scale_x_continuous(limits = c(0,2)) +
+  scale_y_continuous(limits = c(0,5)) +
+  theme_void()
+
+```
+
+```{r assemble}
+
+final <- main +
+  inset_element(legend, 0.7, 0.4, 1.35, 1.1)
+
+ragg::agg_png(here::here("render", paste0("30DayChartChallenge_day2", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 14, height = 13, units = "in")
+
+final
+  
+dev.off()
+
+```
+
