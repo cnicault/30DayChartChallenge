@@ -1,0 +1,124 @@
+---
+title: "Day3: Historical"
+author: "Christophe Nicault"
+date: "03/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_packages}
+
+library(tidyverse)
+library(waffle)
+library(patchwork)
+library(showtext)
+library(ggtext)
+
+
+font_add_google("Oswald", "oswald")
+font_add_google("Roboto Condensed", "roboto condensed")
+font_add_google("Share Tech Mono", "techmono")
+
+showtext_opts(dpi = 320)
+showtext_auto(enable = TRUE)
+```
+
+```{r load_data}
+
+expeditions <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-22/expeditions.csv')
+peaks <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-22/peaks.csv')
+
+full_peak <- expeditions %>%
+  left_join(peaks)
+
+```
+
+
+```{r waffle_plot}
+
+waffle_plt <- full_peak %>%
+  mutate(decade = floor(year / 10) * 10) %>%
+  mutate(status = ifelse(str_detect(termination_reason, "Success"), "Success", "Failure")) %>%
+  group_by(decade) %>%
+  count(status) %>%
+  ungroup() %>%
+  filter(decade >= 1950) %>%
+  ggplot(aes(values = ceiling(n/10), fill = status)) +
+  geom_waffle(n_rows = 10, size = 0.2, color = "#1A2E40", flip = TRUE)+
+  scale_fill_manual(
+    name = NULL,
+    values = c("#51718C", "#88A5BF"),
+    labels = c("Success", "Failure")
+  ) +
+  coord_equal()+
+  facet_wrap(~decade, nrow = 1, strip.position = "bottom", labeller = labeller(decade = function(string){paste0(string,"'s")})) +
+  guides(fill = guide_legend(label.position = "top",
+                               title.hjust = 0.5,
+                               keywidth = unit(6, "line"),
+                               keyheight = unit(1, "line"),
+                               nrow = 1
+                               )
+           )+
+  theme_void()+
+  theme(plot.background = element_rect(fill = "#1A2E40", color = NA),
+        strip.text.x = element_text(family = "oswald", face = "bold", size = 12, color = "#D8E6F2"),
+        plot.margin = margin(0,0,160,0),
+        panel.spacing = unit(0, "mm"),
+        legend.position = c(0.3, 0.8),
+        legend.text = element_text(family = "oswald", face = "bold", size = 12, color = "#D8E6F2"))
+
+```
+
+I needed to add 1 to the death numbers before the sequence, to avoid having a error with seq in case of zero death
+I decrease all numbers by 1 after to go back from zero to number of death per year.
+
+```{r death_plot}
+
+death_plt <- full_peak %>%
+  group_by(year) %>%
+  summarise(nb_members = sum(members),
+            nb_deaths = sum(member_deaths)+1) %>%
+  ungroup() %>%
+  filter(year >= 1950) %>%
+  mutate(point = purrr::map(nb_deaths, function(x){seq(1,x,1)})) %>%
+  unnest(cols = point) %>%
+  mutate(decade = floor(year / 10) * 10,
+         point = point - 1,
+         year = year-decade) %>%
+  ggplot(aes(year, point)) +
+  geom_point(color = "#F2385A", size = 0.9) +
+  scale_y_continuous(trans = "reverse") +
+  facet_wrap(~decade, nrow = 1) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "#1A2E40", color = "NA"),
+        strip.text = element_blank())
+
+
+```
+
+```{r assemble}
+
+final <- waffle_plt + inset_element(death_plt, 0.055, 0.05, 0.95, 0.3, align_to = "full") + 
+  plot_annotation(
+      title = "Evolution of number of expeditions & deaths in the Himalayas",
+      subtitle = "Each square represents 10 expeditions & <span style='color:#F2385A'>each dot</span> represents one death.",
+      caption = "#30DayChartChallenge Day 3 | Viz: Christophe Nicault | Data: The Himalayan Database",
+      theme = theme(
+        plot.background = element_rect(fill = "#1A2E40"),
+        plot.title = element_text(family = "oswald", size = 18, color = "#D8E6F2", hjust = 0.5, face = "bold", margin = margin(10,0,5,0)),
+        plot.subtitle = element_textbox_simple(family = "oswald", color = "#D8E6F2", size = 14, halign = 0.5),
+        plot.caption = element_text(family = "techmono", color = "#D8E6F2", size = 10, hjust = 0.98)      
+      )
+    )
+
+ragg::agg_png(here::here("render", paste0("30DayChartChallenge_day3", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 10, height = 8, units = "in")
+
+final
+  
+dev.off()
+
+```
+

@@ -1,5 +1,12 @@
 # #30DayChartChallenge
 
+## Day 3 - Historical
+
+evolution of the number of expeditions and deaths in the Himalayas
+
+![Number of expeditions and deaths in the Himalayas](/day03/day03_historical.png)
+
+----
 ## Day 2 - Pictogram
 
 Part of the main source of renewable energy
