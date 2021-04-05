@@ -1,12 +1,21 @@
 # #30DayChartChallenge
 
+## Day 5 - Historical
+
+Comparison of the ranking between 2011 & 2021 of the programming languages I used
+
+![Comparison of the ranking of programming languages](/day05/day05_slope.png)
+
+----
+
 ## Day 3 - Historical
 
-evolution of the number of expeditions and deaths in the Himalayas
+Evolution of the number of expeditions and deaths in the Himalayas
 
 ![Number of expeditions and deaths in the Himalayas](/day03/day03_historical.png)
 
 ----
+
 ## Day 2 - Pictogram
 
 Part of the main source of renewable energy

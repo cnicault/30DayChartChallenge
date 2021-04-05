@@ -1,0 +1,201 @@
+---
+title: "Day 5: slope"
+author: "Christophe Nicault"
+date: "05/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_packages}
+library(tidyverse)
+#devtools::install_github("amrrs/tiobeindexr")
+library(tiobeindexr)
+library(scales)
+library(patchwork)
+library(showtext)
+library(ggtext)
+
+
+font_add_google("Oswald", "oswald")
+font_add_google("Roboto", "roboto")
+font_add_google("Share Tech Mono", "techmono")
+
+showtext_opts(dpi = 320)
+showtext_auto(enable = TRUE)
+```
+
+Manually from picture :
+https://www.geeks3d.com/20110121/tiobe-index-january-2011-python-wins-the-tiobe-programming-language-award-of-2010/
+
+```{r data_prep}
+
+# create dataframe
+
+# list from 2011, collected by hand from picture
+tiobe2011 <- tribble(
+   ~language, ~perc,
+   "Java", 17.773,
+   "C", 15.822,
+   "C++", 8.783,
+   "PHP", 7.835,
+   "Python", 6.265,
+   "JavaScript", 1.589,
+   "Pascal", 0.919,
+   "RPG", 0.717,
+   "R", 0.543,
+   "CL", 0.349,
+   "Assembly language", 0.864,
+) %>%
+  mutate(year = 2011)
+
+# list of most popular
+higher <- tiobe2011 %>%
+  filter(perc > 5) %>%
+  select(language) %>%
+  pull()
+
+# list from 2021
+tiobe2021 <- tiobeindexr::top_50() %>%
+  filter(`Programming Language` %in% tiobe2011$language | `Programming Language` %in% c("SQL", "Bash")) %>%
+  rename(language = `Programming Language`) %>%
+  mutate(perc = as.numeric(str_replace(Ratings, "%", "")),
+         year = 2021) %>%
+  select(language, perc, year)
+
+# Full dataset
+tiobe_tmp <- tiobe2021 %>% 
+  bind_rows(tiobe2011) 
+
+tiobe <- expand.grid(language = unique(tiobe_tmp$language), year = c(2011, 2021))
+
+tiobe <- tiobe %>%
+  left_join(tiobe_tmp) %>%
+  mutate(popularity = ifelse(language %in% higher, "High", "Low"),
+         language = ifelse(language == "Assembly language", "Assembly", language)) %>%
+  replace_na(list(perc = 0))
+
+# wide format for text for each year, with offset to avoid overlaping text
+tiobe_w <- tiobe %>%
+  mutate(year = paste0("y", year)) %>%
+  pivot_wider(id_cols = c(language, popularity), names_from = year, values_from = perc)  %>%
+  mutate(nudge_y = case_when(
+    language == "Java" ~ 0.2,
+    language == "Python" ~ -0.2,
+    language == "Bash" ~ 0.05,
+    language == "RPG" ~ -0.05,
+    language == "Pascal" ~ 0.02,
+    language == "Assembly" ~ -0.02,
+    TRUE ~ 0
+  ))
+
+# scale labels
+labels_high <- tibble(posy = seq(0,17.5,2.5)) %>%
+  mutate(text = scales::percent(posy, accuracy = 0.01, scale = 1)) 
+
+labels_low <- tibble(posy = seq(0,2.5,0.5)) %>%
+  mutate(text = ifelse(posy ==0, "Out of the index", scales::percent(posy, accuracy = 0.01, scale = 1)))
+
+# concatenate languages outside tiobe index
+text_out <- tiobe %>% 
+  filter(popularity == "Low") %>%
+  filter(perc == 0) %>%
+  pivot_wider(id_cols = year, values_from = language, names_from = language) %>%
+  unite(text, 2:5, sep = " - ", na.rm = TRUE)
+
+```
+
+```{r colors}
+
+bck_clr = "#E7F0F6"
+slope_clr = "#8C2F1B"
+axis_clr = "#184059"
+text_clr = "#8C2F1B"
+legend_clr = "#184059"
+
+```
+
+
+```{r most_popular}
+
+most_plt <- tiobe %>%
+  filter(popularity == "High") %>%
+  ggplot() +
+  annotate("segment", x = 2011, xend = 2011, y = 0, yend = 19, size = 2, color = axis_clr) +
+  annotate("segment", x = 2021, xend = 2021, y = 0, yend = 19, size = 2, color = axis_clr) +
+  geom_segment(data = labels_high, aes(x = 2011, xend = 2015.5, y = posy, yend = posy), linetype = "13", color = axis_clr) +
+  geom_segment(data = labels_high, aes(x = 2016.5, xend = 2021, y = posy, yend = posy), linetype = "13", color = axis_clr) +  
+  geom_line(aes(x = year, y = perc, group = language), size = 2, color = slope_clr) +
+  geom_point(aes(year, perc, color = language), size = 4, color = slope_clr) +
+  geom_point(data = filter(tiobe, popularity == "High"), aes(year, perc, color = language), size = 1, color = bck_clr) +
+  geom_line(aes(x = year, y = perc, group = language), size = 1, color = bck_clr) +
+  geom_text(data = filter(tiobe_w, popularity == "High"), aes(x = 2010, y = y2011, label = language), hjust = 1, color = text_clr, family = "roboto") +
+  geom_text(data = filter(tiobe_w, popularity == "High"), aes(x = 2022, y = y2021 + nudge_y, label = language), hjust = 0, color = text_clr, family = "roboto") +
+  geom_label(data = labels_high, aes(x = 2016, y = posy, label = text), label.size = 0, color = legend_clr, fill = bck_clr, size = 3, family = "roboto condensed")+  
+  scale_x_continuous(limits = c(2008, 2025), breaks = c(2011,2021)) +
+  guides(color = FALSE) +
+  labs(title = "Most popular") +
+  theme_void()+
+  theme(plot.title = element_text(color = legend_clr, family = "oswald", size = 14, hjust = 0.5),
+        axis.text.x = element_text(color = legend_clr, family = "roboto condensed", size = 12, hjust = 0.5))
+
+```
+
+Same plot, except for extra customization with the languages that are out of the index, which is the reason I duplicated the post instead of using a function.
+
+```{r least_popular}
+
+least_plt <- tiobe %>%
+  filter(popularity == "Low") %>%
+  ggplot() +
+  annotate("segment", x = 2011, xend = 2011, y = 0, yend = 2.7, size = 2, color = axis_clr) +
+  annotate("segment", x = 2021, xend = 2021, y = 0, yend = 2.7, size = 2, color = axis_clr) +
+  geom_segment(data = labels_low, aes(x = 2011, xend = 2015.5, y = posy, yend = posy), linetype = "13", color = axis_clr) +
+  geom_segment(data = labels_low, aes(x = 2016.5, xend = 2021, y = posy, yend = posy), linetype = "13", color = axis_clr) +  
+  geom_line(aes(x = year, y = perc, group = language), size = 2, color = slope_clr) +
+  geom_point(aes(year, perc, color = language), size = 4, color = slope_clr) +
+  geom_point(data = filter(tiobe, popularity == "Low"), aes(year, perc, color = language), size = 1, color = bck_clr) +
+  geom_line(aes(x = year, y = perc, group = language), size = 1, color = bck_clr) +
+  geom_text(data = filter(tiobe_w, popularity == "Low", y2011 != 0), aes(x = 2010, y = y2011 + nudge_y, label = language), hjust = 1, color = text_clr, family = "roboto") +
+  geom_text(data = filter(tiobe_w, popularity == "Low", y2021 != 0), aes(x = 2022, y = y2021 + nudge_y, label = language), hjust = 0, color = text_clr, family = "roboto") +
+  geom_text(data = filter(text_out, year == 2011), aes(x = 2010.5, y = 0, label = text), hjust = 1, color = text_clr) +
+  geom_text(data = filter(text_out, year == 2021), aes(x = 2021.5, y = 0, label = text), hjust = 0, color = text_clr) +
+
+  geom_label(data = labels_low, aes(x = 2016, y = posy, label = text), label.size = 0, color = legend_clr, fill = bck_clr, size = 3, family = "roboto condensed")+
+  scale_x_continuous(limits = c(2008, 2025), breaks = c(2011,2021)) +
+  guides(color = FALSE) +
+  labs(title = "Least popular") +
+  theme_void() +
+  theme(plot.title = element_text(color = legend_clr, family = "oswald", size = 14, hjust = 0.5),
+        axis.text.x = element_text(color = legend_clr, family = "roboto condensed", size = 12, hjust = 0.5))
+```
+
+
+```{r assemble}
+
+final <- most_plt + least_plt +
+  plot_layout(ncol = 2, width = c(0.5,0.5))+
+   plot_annotation(
+      title = "Ranking of the programming languages I used in my career.",
+      subtitle = "Evolution of the ranking according to the Tiobe Index between 2011 and 2021.",
+      caption = "#30DayChartChallenge Day 5 | Viz: Christophe Nicault | Data: Tiobe Index & {tiobeindexr}",
+      theme = theme(
+        plot.margin = margin(0,30, 10 ,30) ,
+        plot.background = element_rect(fill = bck_clr),
+        plot.title = element_text(family = "oswald", size = 17, color = legend_clr, hjust = 0.5, face = "bold", margin = margin(10,0,5,0)),
+        plot.subtitle = element_textbox_simple(family = "oswald", color = legend_clr, size = 14, halign = 0.5, margin = margin(0,0,30,0)),
+        plot.caption = element_text(family = "techmono", color = legend_clr, size = 10, hjust = 0.98, margin = margin(30,0,0,0))      
+        
+      )
+    )
+
+ragg::agg_png(here::here("render", paste0("30DayChartChallenge_day5", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 10, height = 6, units = "in")
+
+final
+  
+dev.off()
+
+```
+
