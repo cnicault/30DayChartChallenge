@@ -3,5 +3,7 @@
 .RData
 .Ruserdata
 render/
+input/
 
 *.mp4
+*.csv

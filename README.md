@@ -1,5 +1,13 @@
 # #30DayChartChallenge
 
+## Day 7 - Pysical
+
+Age & sex distribution of the medalists in the Summer Olympic Games
+
+![Age & sex distribution of the medalists in the Summer Olympic Games](/day07/day07_physical.png)
+
+----
+
 ## Day 5 - Historical
 
 Comparison of the ranking between 2011 & 2021 of the programming languages I used
