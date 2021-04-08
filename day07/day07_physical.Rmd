@@ -103,7 +103,7 @@ age_distribution <- athletes %>%
   scale_y_continuous(breaks = seq(10, 70, 10)) +
   guides(fill = FALSE) +
   theme_void() +
-  theme(panel.background = element_rect(fill = "grey30", color = NA),
+  theme(panel.background = element_rect(fill = "grey20", color = NA),
         panel.grid.major.y = element_line(linetype = "14", size = 0.3, color = "grey70"),
         axis.text.y = element_blank(),
         axis.text.x = element_text(angle = 90, margin = margin(-40, 10, 10, 0), color = "grey70", vjust = -0.3, size = 12, family = "roboto condensed"))
@@ -130,7 +130,7 @@ sex_distribution <- athletes %>%
                                nrow = 1
                                )) +
   theme_void() +
-  theme(panel.background = element_rect(fill = "grey30", color = NA),
+  theme(panel.background = element_rect(fill = "grey20", color = NA),
         legend.position = c(0.1, 0.90),
         legend.title = element_blank(),
         legend.text = element_text(family = "oswald", face = "bold", size = 12, color = "#D8E6F2"))
@@ -146,7 +146,7 @@ final <- sex_distribution / age_distribution +
       subtitle = "And a focus on the oldest and the youngest athletes for women and men.",
       caption = "#30DayChartChallenge Day 7 | Viz: Christophe Nicault | Data: www.sports-reference.com / Kaggle",
       theme = theme(
-        plot.background = element_rect(fill = "grey30", color = NA),
+        plot.background = element_rect(fill = "grey20", color = NA),
         plot.title = element_text(family = "oswald", size = 18, color = "white", hjust = 0.5, face = "bold", margin = margin(10,0,0,0)),
         plot.subtitle = element_text(family = "oswald", color = "white", size = 14, hjust = 0.5, margin = margin(10,0,15,0)),
         plot.caption = element_text(family = "techmono", color = "grey80", size = 10, hjust = 0.98)      
