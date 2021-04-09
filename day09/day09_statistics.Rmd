@@ -1,0 +1,162 @@
+---
+title: "Day 9: Distribution - Statistics"
+author: "Christophe Nicault"
+date: "09/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_packages}
+
+library(tidyverse)
+library(GlmSimulatoR)
+library(lubridate)
+library(showtext)
+library(ggtext)
+library(patchwork)
+
+
+font_add_google("Oswald", "oswald")
+font_add_google("Roboto Condensed", "roboto condensed")
+font_add_google("Share Tech Mono", "techmono")
+
+showtext_opts(dpi = 320)
+showtext_auto(enable = TRUE)
+
+```
+
+The data can be found there:
+
+https://www.kaggle.com/c/m5-forecasting-accuracy/data
+
+```{r}
+
+trainset <- vroom::vroom(here::here("input", "sales_train_evaluation.csv"))
+calendar <- vroom::vroom(here::here("input", "calendar.csv"))
+
+```
+
+```{r ts_theme}
+
+theme_cn_ts <- function (dpi = 320, base_family ="", title = "") {
+  
+    theme_void(base_size = 12, base_family= base_family) %+replace% 
+        theme(
+          plot.margin = margin(10,10,10,10),
+          panel.background = element_blank(),
+          panel.grid.major.y = element_line(linetype = "14", size = 0.2, color = "grey20"),
+          panel.grid.major.x = element_line(linetype = "14", size = 0.2, color = "grey20"),
+          plot.title = element_markdown(family = title, size = 10, margin = margin(5,0,0,0), color =  "#183170", hjust = -0.05),
+          plot.subtitle = element_markdown(family = title, size = 8, margin = margin(5,0,5,0), color =  "#183170", hjust = -0.05),
+          strip.background = element_blank(),
+          strip.text.x = element_text(hjust = 0.5, size = 12),
+          axis.title.x = element_blank(),
+          axis.text = element_text(size = 10, margin = margin(5,0,0,0), color = "#183170"),
+        )
+}
+
+```
+
+
+```{r tweedie_charts}
+
+set.seed(1)
+
+
+tweedie_plt <- function(power = 1.1){
+  
+  simdata <- simulate_tweedie(N = 10000, weight = c(0.2), ancillary = power, link = "log")
+  plt <- simdata %>%
+  ggplot(aes(x = Y)) + 
+  geom_histogram(bins = 30, fill = "#2C87BF", binwidth = 0.2, center = 0) +
+  labs("title" = glue::glue("&rho; = {power}")) +
+  theme_cn_ts(320, "roboto condensed", "roboto")
+  if(power == 1) { plt <- plt + labs(subtitle = "Equivalent to Poisson distribution")}
+  if(power == 2) { plt <- plt + labs(subtitle = "Equivalent to Gamma distribution")}
+  plt
+}
+
+plt <- lapply(c(1,1.1,1.5,2), tweedie_plt)
+
+tweedie <- plt[[1]] + plt[[2]] + plt[[3]] + plt[[4]] + plot_layout(nrow = 1)
+
+```
+
+
+```{r comparison_charts}
+
+foods_015 <- trainset %>%
+  filter(item_id == "FOODS_3_015", store_id == "CA_1") %>%
+  pivot_longer(cols = c(d_1:d_1941), names_to = "d") %>%
+  left_join(calendar)
+
+p11 <- foods_015 %>%
+  filter(date >= ymd("2015-01-01"), date <= ymd("2015-05-01"))  %>%
+  ggplot(aes(date, value)) +
+  geom_line(group = 1) +
+  scale_y_continuous(limits = c(0, 8)) +
+  annotate("text", x = ymd("2015-01-10"), y = 8, label = "Sample of a real item from the M5 competition ", hjust = 0, family = "roboto condensed", color =  "#183170") + 
+  theme_cn_ts(320, "roboto condensed", "oswald") 
+
+p12 <- foods_015 %>%
+  ggplot(aes(x = value)) + 
+  geom_histogram(bins = 30, fill = "#6E8C03", binwidth = 1, center = 0) +
+  scale_x_continuous(limits = c(-1,15)) +
+  theme_cn_ts(320, "roboto condensed", "oswald")
+
+simdata <- simulate_tweedie(N = 1969, weight = c(0.35), ancillary = 1.5, link = "log")
+
+p21 <- simdata %>%
+  arrange(X1) %>%
+  head(121) %>%
+  bind_cols(tibble(date = seq(ymd("2015-01-01"), ymd("2015-05-01"), 1))) %>%
+  ggplot(aes(x = date, y = round(Y))) +
+  geom_line(group= 1) +
+  scale_y_continuous(limits = c(0, 8)) +
+  annotate("text", x = ymd("2015-01-10"), y = 7.8, label = expression(paste("Sample based on a simulation of Tweedie distribution with ", rho ," = 1.5")), hjust = 0, family = "roboto condensed", color =  "#183170") +
+  theme_cn_ts(320, "roboto condensed", "oswald")
+
+p22 <- simdata %>%
+  mutate(value = Y) %>%
+  ggplot(aes(x = value)) + 
+  geom_histogram(bins = 15, fill = "#2C87BF", binwidth = 1, center = 0) +
+  scale_x_continuous(limits = c(-1,15)) +
+  theme_cn_ts(320, "roboto condensed", "oswald") 
+
+compare <- ((p11 + p12) + plot_layout(width = c(3,1))) / ((p21 + p22) + plot_layout(width = c(3,1))) 
+
+```
+
+```{r assemble}
+
+spacer <- ggplot() +
+  labs(title = "Real case - comparison between an item from the M5 competition\n and data simulated with a Tweedie distribution") +
+  theme_void() +
+  theme(plot.title = element_text(family = "roboto condensed", size = 12, margin = margin(15,0,5,0), color =  "#183170", hjust = 0),)
+
+final <- tweedie / spacer / compare +
+  plot_layout(heights = c(1, 0.05, 2))+ 
+  plot_annotation(
+      title = "Experiencing with Tweedie distribution for intermittent data.",
+      subtitle = str_wrap("Intermittent sales give a right skewed distribution and a high concentration of zero values. In the M5 competition, the Tweedie regression was the objective function that gave the best results. The firsts row of graph shows the distribution for different value of &rho;. The bottom part is a comparison of an item from the M5 competition with data simulated with a Tweedie distribution.", 120),
+      caption = "#30DayChartChallenge Day 9 | Viz: Christophe Nicault | Data: M5 Competition / Kaggle",
+      theme = theme(
+        plot.title = element_text(family = "oswald", size = 14, color = "#183170", hjust = 0.5, face = "bold", margin = margin(10,0,10,0)),
+        plot.subtitle = element_textbox_simple(family = "roboto condensed", color = "#183170", size = 12, halign = 0.5),
+        plot.caption = element_text(family = "techmono", color = "#183170", size = 10, hjust = 0.98)      
+      )
+    )
+
+ragg::agg_png(here::here("render", paste0("30DayChartChallenge_day9", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 10, height = 8, units = "in")
+
+final
+  
+dev.off()
+
+```
+
+
+

@@ -1,6 +1,14 @@
 # #30DayChartChallenge
 
-## Day 7 - Pysical
+## Day 9 - Statistics
+
+Experiencing with Tweedie distribution for intermittent data
+
+![Experiencing with Tweedie distribution for intermittent data](/day09/day09_statistics.png)
+
+----
+
+## Day 7 - Physical
 
 Age & sex distribution of the medalists in the Summer Olympic Games
 
