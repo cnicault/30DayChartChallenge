@@ -1,0 +1,137 @@
+---
+title: "UFO Sighting"
+author: "Christophe Nicault"
+date: "12/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_packages}
+
+library(tidyverse)
+library(packcircles)
+library(ggforce)
+library(ggfx)
+library(patchwork)
+library(showtext)
+library(ggtext)
+
+font_add_google("Oswald", "oswald")
+font_add_google("Roboto Condensed", "roboto condensed")
+font_add_google("Share Tech Mono", "techmono")
+
+showtext_opts(dpi = 320)
+showtext_auto(enable = TRUE)
+
+```
+
+
+```{r load_data}
+
+ufo_sightings <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-06-25/ufo_sightings.csv")
+
+```
+
+```{r usa_map}
+
+# link state name with code and centroids
+link <- tibble(name = state.name, code = state.abb, centerx = state.center$x, centery = state.center$y)
+
+sightings <- ufo_sightings %>%
+  filter(country == "us", !state %in% c("ak", "hi")) %>%
+  count(state) %>%
+  mutate(state = str_to_upper(state),
+         r = sqrt(n / pi)) %>%
+  left_join(link, by = c("state" = "code"))
+  
+range(sightings$n)
+  
+# create map
+map <- map_data("state") %>%
+  mutate(region = str_to_title(region))
+
+usa_map <- ggplot() +
+  geom_polygon(data = map, aes(x = long, y = lat, group = group), fill = "#163A59", color = "#30618C")+
+   with_blur(
+      geom_point(data = sightings, aes(x = centerx, y = centery, size = n, fill = n), shape = 21), sigma = 8
+   )+
+  geom_point(data = sightings, aes(x = centerx, y = centery, size = n/5), fill = "#7C9912", shape = 21) +
+  geom_point(data = sightings, aes(x = centerx, y = centery, size = n/10), fill = "#48590B", shape = 21) +
+  geom_point(data = sightings, aes(x = centerx, y = centery, size = n/100), fill = "#AFD91A", shape = 21) +
+  scale_fill_gradient(low = "#AFD91A", high = "#DCF230") +
+  scale_size_continuous(range = c(1,22), breaks = seq(2000, 8000, 2000), limits = c(0, 9000)) +
+  scale_y_continuous(limits = c(18, 50)) +
+  scale_x_continuous(limits = c(-125, -49))+
+  coord_map()+
+  labs(fill = "nb", size = "nb",
+       title = "UFO sightings in the USA",
+       subtitle = "Number of UFO sightings by states, and UFO shape distribution.",
+       caption = "#30DayChartChallenge Day 11 | Viz: Christophe Nicault | Data: NUFORC") +
+  guides(fill= guide_legend(label.position = "bottom",
+                               title.hjust = 0.5,
+                               keyheight = unit(0.5, "line"),
+                               nrow = 1),
+         size=guide_legend(label.position = "bottom",
+                               title.hjust = 0.5,
+                               keyheight = unit(0.5, "line"),
+                               nrow = 1)) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "#1A2E40", color = NA),
+        legend.position = c(0.20, 0.12),
+        legend.text = element_text(face = "bold", size = 8, color = "#D8E6F2"),
+        legend.title = element_blank(),
+        plot.title = element_text(family = "oswald", size = 18, color = "#D8E6F2", hjust = 0.5, face = "bold", margin = margin(10,0,5,0)),
+        plot.subtitle = element_textbox_simple(family = "oswald", color = "#D8E6F2", size = 14, halign = 0.5),
+        plot.caption = element_text(family = "techmono", color = "#D8E6F2", size = 8, hjust = 0.96, margin = margin(0,0,5,0)) )
+
+```
+
+```{r ufo_shapes}
+
+shape <- ufo_sightings %>%
+  filter(country == "us") %>%
+  count(ufo_shape) %>%
+  mutate(r = sqrt(n / pi),
+         perc = scales::percent(n / sum(n), accuracy = 0.01),
+         label = glue::glue("{str_to_title(ufo_shape)}")) 
+
+layout <- circleProgressiveLayout(shape$n) %>%
+  bind_cols(shape = shape$label) %>%
+  bind_cols(perc = shape$perc) %>%
+  na.omit() %>%
+  mutate(id = row_number())
+
+# Use geom_circle from ggforce to get a smoother circle than using polygon
+#circle_layout <- circleLayoutVertices(layout = layout) %>%
+#    left_join(select(layout, -c(x, y)), by = c("id" = "id")) 
+
+
+ufo_shapes <- ggplot()+
+  #geom_polygon(data = circle_layout, aes(x=x, y=y, group=id, fill = radius)) +   # replaced by geom_circle
+  geom_circle(data = layout, aes(x0 = x, y0 = y, r = radius, fill = radius), size = 0.3)+
+  geom_text(data = slice_max(layout, order_by = radius, n = 9), aes(x, y + 10, label = shape), color = "#D8E6F2", family = "oswald", inherit.aes = FALSE, size = 4.2) +
+    geom_text(data = slice_max(layout, order_by = radius, n = 9), aes(x, y - 20, label = perc), color = "#D8E6F2", family = "oswald", inherit.aes = FALSE, size = 2.5) +
+  scale_fill_gradient(high = "#315E8D", low = "#D2DFF1", trans = "sqrt") +
+  theme_void() +
+  coord_fixed() +
+  guides(fill = FALSE)
+
+```
+
+
+```{r assemble}
+
+final <- usa_map + inset_element(ufo_shapes, 0.60,0.05, 1.05,0.7) + plot_annotation(theme = theme(plot.background = element_rect(fill = "#1A2E40", color = NA)))
+
+ragg::agg_png(here::here("render", paste0("30DayChartChallenge_day11", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 10.45, height = 6.48, units = "in")
+
+final
+  
+dev.off()
+
+```
+
