@@ -7,6 +7,16 @@ Number of UFO sightings by states, and UFO shape distribution
 ![Number of UFO sightings by states, and UFO shape distribution](/day11/day11_circular.png)
 
 ----
+
+## Day 10 - Abstract
+
+Random distribution of triangles of random size and colors
+
+![Random distribution of triangles of random size and bright colors ](/day10/triangle_bright_on_dark.png)
+![Random distribution of triangles of random size and black and white](/day10/triangle_bw.png)
+
+----
+
 ## Day 9 - Statistics
 
 Experiencing with Tweedie distribution for intermittent data

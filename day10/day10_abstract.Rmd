@@ -1,0 +1,198 @@
+---
+title: 'Day 10: distribution - abstract'
+author: "Christophe Nicault"
+date: "13/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r parameters}
+
+
+# resolution to improve number of pixel to check for collision (tradeoff: computing time)
+dpi <- 72
+
+# dimension for the grid to store pixels corresponding to triangles (avoid using collision function if we already know that the location is a triangle)
+dim1 <- dpi * 20
+dim2 <- dpi * 20
+
+```
+
+
+Got the formula there : 
+https://mathworld.wolfram.com/TriangleInterior.html#:~:text=The%20simplest%20way%20to%20determine,it%20lies%20outside%20the%20triangle
+
+
+```{r collision_function}
+
+is_inside <- function(x, y, triangle){
+
+  point <- matrix(c(x, y), ncol = 1)
+  
+  detvect <- function(u, v){
+    return(u[1]*v[2] - u[2]*v[1])  
+  }
+  
+  v0 <- matrix(c(triangle$x, triangle$y), ncol= 1) * dpi
+  v1 <- matrix(c(triangle$l1, 0), ncol= 1) * dpi
+  v2 <- matrix(c(0, triangle$l2), ncol= 1) * dpi
+  
+  a <- (detvect(point, v2) - detvect(v0,v2)) / detvect(v1, v2)
+  b <- -(detvect(point, v1) - detvect(v0, v1)) / detvect(v1, v2)
+  
+  result <- ifelse(a > 0 & b > 0 & a + b < 1, 1L, 0L) 
+  result
+}
+
+```
+
+
+```{r initialisation}
+
+triangle_df <- tibble(x = double(),
+                      y = double(),
+                      l1 = double(),
+                      l2 = double(),
+                      color = integer())
+
+collision <- as_tibble(expand.grid(x = seq(1, dim1, 1),
+                                   y = seq(1, dim1, 1))) %>%
+  mutate(collision = rep(0, dim1*dim2))
+
+```
+
+
+```{r main_function}
+
+generate_triangle <- function(max_try, avg_length, sd_length){
+  
+  nb_try <- 0
+  
+  while(nb_try < max_try){
+    
+    triangle <- tibble(x = runif(1, 0, 20-avg_length),
+                       y = runif(1, 0, 20-avg_length),
+                       l1 = rnorm(1, avg_length, sd_length),
+                       l2 = rnorm(1, avg_length, sd_length),
+                       color = sample(1:5,1))
+    
+    poly <- triangle %>%
+      mutate(x1 = list(c(x, x + l1, x)),
+             y1 = list(c(y, y, y + l2)),
+             group = row_number(),
+             color = as.factor(color))
+    
+    triangle_place <- collision %>%
+      filter(between(x, min(poly$x1[[1]]) * dpi, max(poly$x1[[1]]) * dpi),
+             between(y, min(poly$y1[[1]]) * dpi, max(poly$y1[[1]]) * dpi)) %>%
+      mutate(place = map2_int(.x = x, .y = y , .f = is_inside, triangle))
+    
+    has_collision <- nrow(triangle_place[which(triangle_place$place == triangle_place$collision & triangle_place$collision != 0),])
+    
+    if(has_collision  == 0 ){
+      
+      collision <<- collision %>%
+        left_join(select(triangle_place, -collision), by = c("x", "y")) %>%
+        mutate(collision = ifelse(place == 1 & !is.na(place), 1, collision)) %>%
+        select(-place)
+      
+      triangle_df <- triangle_df %>%
+        bind_rows(triangle)
+    }
+    print(paste("try", nb_try + 1, " on ", max_try))
+    nb_try <- nb_try + 1
+    
+  }
+  triangle_df
+  
+}
+
+
+```
+
+```{r generate_triangle}
+
+# Generate by size, as it won't be possible to fit a big triangle when the plot is filled with small
+# and the program takes a lot of time, it's improving the performance
+# you can play with the parameters, number of triangles and size distribution
+triangle_df <- generate_triangle(200, 6, 2)
+triangle_df <- generate_triangle(400, 4, 1)
+triangle_df <- generate_triangle(600, 2, 0.5)
+triangle_df <- generate_triangle(600, 1, 0.2)
+triangle_df <- generate_triangle(600, 0.5, 0.1)
+triangle_df <- generate_triangle(600, 0.3, 0.05)
+triangle_df <- generate_triangle(1000, 0.2, 0.02)
+
+poly <- triangle_df %>%
+  mutate(group = row_number()) %>%
+  group_by(group) %>%
+  summarise(x1 = list(c(x, x + l1, x)),
+            y1 = list(c(y, y, y + l2)),
+            color = as.factor(color)) %>%
+  ungroup()
+
+
+
+
+```
+
+You can select the color choice you prefere, or create your own
+
+```{r color_selection}
+
+#color palette
+bck_clr <- "#efefef"
+pal <- c("#0468BF", "#049DBF", "#3B592D", "#D99E6A", "#8C4332")
+
+# black and white
+bck_clr <- "white"
+pal <- c("#F2F2F2", "#A6A6A6", "#595959", "#262626", "#0D0D0D")
+
+# bright colors, dark background
+bck_clr <- "grey30"
+pal <- c("#D9043D", "#84BF04", "#F2B705", "#BF7E45", "#F2F2F2")
+
+# bright colors, dark background
+bck_clr <- "grey30"
+pal <- c("#048ABF", "#04ADBF", "#F29F05", "#F28705", "#F26A4B")
+
+```
+
+
+```{r plot}
+
+plt <- poly %>%
+  unnest(c(x1, y1)) %>% 
+  ggplot() +
+  geom_polygon(aes(x1,y1, group = group, fill = color), alpha = 1) +
+  scale_fill_manual(values = pal) +
+  coord_fixed() +
+  theme_void() +
+  theme(
+    legend.position = "none",
+    plot.background = element_rect(fill = bck_clr, color = NA)
+  )
+
+
+ragg::agg_png(here::here("render", paste("triangle", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 8, height = 8, units = "in")
+plt
+dev.off()
+
+```
+
+# Save / load the data to re-use later as it takes time to generate
+
+```{r}
+saveRDS(poly, here::here("day10",  "triangles.RDS"))
+poly <- readRDS(here::here("day10",  "triangles.RDS"))
+
+```
+
