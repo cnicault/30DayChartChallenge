@@ -74,12 +74,12 @@ monthly_plt <- ggplot() +
   geom_segment(data = seg, aes(x = x, xend = xend, y = y, yend = yend), color = "white", linetype = "12") +
   geom_text(data = seg_lab, aes(x = x, y = y, label = glue::glue("{y} °C")), color = "white", nudge_y = 1, family = "roboto condensed", hjust = 0) +
   # show.legend = FALSE to remove the shape of the point in the legend
-  geom_jitter(data = filter(monthly, color == "Recent"), aes(x = pos-0.2, y = AverageTemperature, fill = color), width = 0.15, height =0, size = 3, shape = 21, stroke = 0.3, color = "#FFDADC", show.legend = FALSE) +
-  geom_jitter(data = filter(monthly, color == "Past"), aes(x = pos+0.2, y = AverageTemperature, fill = color), width = 0.15, height =0, size = 2.5, shape = 21, stroke = 0.3, color = "#93E2F5", show.legend = FALSE) +
+  geom_jitter(data = filter(monthly, color == "Recent"), aes(x = pos+0.2, y = AverageTemperature, fill = color), width = 0.15, height =0, size = 3, shape = 21, stroke = 0.3, color = "#FFDADC", show.legend = FALSE) +
+  geom_jitter(data = filter(monthly, color == "Past"), aes(x = pos-0.2, y = AverageTemperature, fill = color), width = 0.15, height =0, size = 2.5, shape = 21, stroke = 0.3, color = "#93E2F5", show.legend = FALSE) +
   # x-axis labels
   geom_text(data = axis_labels, aes(x = pos, y = -2, label = month), color = "white", vjust = 0, angle = 90, size = 5, family = "oswald")+
   # scales
-  scale_fill_manual(values = c("Recent" = "#f1434a", "Past" = "#1a7bc5"), labels = c("Recent" = "> 1980", "Past" = "< 1980")) +
+  scale_fill_manual(values = c("Recent" = "#f1434a", "Past" = "#1a7bc5"), labels = c("Recent" = "> 1980", "Past" = "<= 1980")) +
   scale_y_continuous(limits = c(-4,26), breaks = seq(0,25,5)) +
   labs(fill = "Observations") +
   theme_void() +
