@@ -1,5 +1,13 @@
 # #30DayChartChallenge
 
+## Day 12 - Strips
+
+Temperature evolution in France with monthly average and yearly deviation from 20th century average
+
+![Temperature evolution in France](/day12/day12_strips.png)
+
+----
+
 ## Day 11 - Circular
 
 Number of UFO sightings by states, and UFO shape distribution
