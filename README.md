@@ -1,5 +1,13 @@
 # #30DayChartChallenge
 
+## Day 16 - Strips
+
+Australian Open 2019 Men's Singles
+
+![Australian Open 2019 Men's Singles](/day16/day16_trees.png)
+
+----
+
 ## Day 12 - Strips
 
 Temperature evolution in France with monthly average and yearly deviation from 20th century average

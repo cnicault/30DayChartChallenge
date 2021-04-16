@@ -1,0 +1,106 @@
+---
+title: "Day 16 : Relationships - Trees"
+author: "Christophe Nicault"
+date: "16/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_packages}
+
+library(tidyverse)
+library(ggimage)
+library(tidygraph)
+library(ggraph)
+library(showtext)
+
+font_add_google("Oswald", "oswald")
+font_add_google("Roboto Condensed", "roboto condensed")
+font_add_google("Share Tech Mono", "techmono")
+
+showtext_opts(dpi = 320)
+showtext_auto(enable = TRUE)
+
+```
+
+Data :
+https://www.kaggle.com/pablodroca/atp-tennis-matches-20002019
+
+```{r load_data}
+
+matches <- vroom::vroom(here::here("input", "atp_matches_2019.csv"))
+players <- vroom::vroom(here::here("input", "atp_players.csv"))
+
+img <- here::here("input", "tennis.png")
+
+```
+
+
+```{r data_prep}
+
+edges <- matches %>%
+  filter(tourney_name == "Australian Open") %>% 
+  select(round, winner_id, loser_id) %>%
+  left_join(select(players, player_id, name_list), by = c("winner_id" = "player_id")) %>%
+  rename(winner = name_list) %>%
+  left_join(select(players, player_id, name_list), by = c("loser_id" = "player_id")) %>%
+  rename(loser = name_list) %>%
+  mutate(level = case_when(
+    round == "R128" ~ 7L,
+    round == "R64" ~ 6L,
+    round == "R32" ~ 5L,
+    round == "R16" ~ 4L,
+    round == "QF" ~ 3L,
+    round == "SF" ~ 2L,
+    round == "F" ~ 1L
+  ),
+  winner_dup = winner) %>%
+  pivot_longer(cols = c("winner_dup", "loser"), names_to = "type", values_to = "to") %>%
+  select(level, from = winner, to) %>%
+  mutate(from = paste0(from, level-1),
+         to = paste0(to, level))
+  
+nodes <- edges %>%
+  pivot_longer(cols = c(from, to), values_to = "name", names_to = "type") %>%
+  select(name) %>%
+  distinct()
+  
+graph  <- tbl_graph(nodes, edges) 
+
+names <- create_layout(graph,  layout = 'dendrogram', circular = TRUE) %>%
+  mutate(name_label = str_replace(name, "[:digit:]", ""),
+         level = as.integer(str_extract(name, "[:digit:]")),
+         name = ifelse(level == 1, "", name_label))
+
+```
+
+```{r plot}
+
+final <- ggraph(graph, layout = 'dendrogram', circular = TRUE) + 
+  geom_image(aes(0,0, image = img), size = 1) +
+  annotate("text", x = 0, y = 0, angle = -45, label = filter(names, level == 0)$name_label, family = "oswald", size = 18, fontface = "bold", color = "white")+
+  geom_edge_elbow() +
+  geom_node_text(data = filter(names, level == 7), aes(label = name_label, x = x, y = y, angle = -((-node_angle(x, y)+90)%%180)+90,  hjust = ifelse(between(node_angle(x,y), 90, 270), 1.1, -0.1)), family = "oswald", size = 5, vjust = 0.5 ) +
+  geom_node_text(data = filter(names, level != 7 & level != 0), aes(label = name_label, x = ifelse(between(node_angle(x,y), 90, 270), x, x), y = y, angle = -((-node_angle(x, y)+90)%%180)+90,  hjust = ifelse(between(node_angle(x,y), 90, 270), -0.1, 1.1)), family = "oswald", size = 5, vjust = -0.2) +    
+  scale_x_continuous(expand = c(0.085,0.085)) +
+  scale_y_continuous(expand = c(0.085,0.085)) +
+  coord_equal(clip = "off") +
+  labs(title = "Australian Open 2019 Men's Singles", 
+       caption = "#30DayChartChallenge Day 16 | Viz: Christophe Nicault | Data: ATP / Kaggle") +
+  theme(plot.background = element_rect(fill = 0, color = NA),
+        panel.background = element_rect(fill = 0, color = NA),
+        plot.title = element_text(family = "oswald", size = 32, color = "#183170", face = "bold", hjust = 0.5, margin = margin(0,0,20,0)),
+        plot.caption = element_text(family = "techmono", color = "#183170", size = 16, hjust = 0.96, margin = margin(15,0,5,0)))
+
+ragg::agg_png(here::here("render", paste0("30DayChartChallenge_day16", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 14, height = 14, units = "in")
+
+final
+  
+dev.off()
+
+```
+
