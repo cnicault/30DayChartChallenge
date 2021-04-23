@@ -1,0 +1,187 @@
+---
+title: 'Day 13: times series - tiles'
+author: "Christophe Nicault"
+date: "23/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_packages}
+
+library(tidyverse)
+library(patchwork)
+library(ggfx)
+library(showtext)
+
+
+font_add_google("Roboto", "roboto")
+font_add_google("Roboto Condensed", "roboto condensed")
+font_add_google("Oswald", "oswald")
+font_add_google("Share Tech Mono", "techmono")
+
+showtext_opts(dpi = 320)
+showtext_auto(enable = TRUE)
+
+```
+
+
+```{r load_data}
+
+climate <- vroom::vroom(here::here("input", "GlobalLandTemperaturesByCountry.csv"))
+
+```
+
+```{r color_palette}
+
+txt_clr <- "white"
+
+col_range <- tibble(
+  range1 = c(c( -6, -5, -4),seq(-3, -0.5, 0.5), seq(0, 4, 0.5)),
+        range2 = c(c( -5, -4, -3),seq(-2.5, 0, 0.5), seq(0.5, 4.5, 0.5)),
+        col =  c(paste0("blue", seq(9, 1, -1)), paste0("red", seq(1, 9, 1)))
+       )
+
+red <- c("#fff5f0", "#fee0d2", "#fcbba1", "#fc9272", "#fb6a4a", "#ef3b2c", "#cb181d", "#a50f15", "#67000d")
+blue <- c("#f7fbff", "#deebf7", "#c6dbef", "#9ecae1", "#6baed6", "#4292c6", "#2171b5", "#08519c", "#08306b")
+
+pal1 <- c(rev(blue), red)
+
+palette <- NULL
+palette[c(paste0("blue", seq(9, 1, -1)), paste0("red", seq(1, 9, 1)))] <- pal1
+
+map_col <- function(x){
+  col_range[which(x > col_range$range1 & x <= col_range$range2 ),]$col
+}
+
+```
+
+```{r monthly}
+
+monthly <- climate %>%
+  filter(Country %in% c("France")) %>%
+  mutate(year = lubridate::year(dt),
+         month = lubridate::month(dt, label = TRUE, abbr = FALSE),
+         pos = lubridate::month(dt, label = FALSE),
+         color = ifelse(year > 1980, "Recent", "Past")) %>%
+  filter(year >=1900, !is.na(AverageTemperature)) 
+
+
+cty_avg <- monthly %>%
+  filter(year >=1900 & year < 2000) %>%
+  group_by(month) %>%
+  summarise(country_avg = mean(AverageTemperature, na.rm = TRUE)) %>%
+  ungroup()
+
+monthly <- monthly %>%
+  left_join(cty_avg, by = c("month")) %>%
+  mutate(temp_diff = AverageTemperature - country_avg) %>%
+  mutate(temp_disc = map_chr(temp_diff, map_col))
+
+main <- monthly %>%
+  ggplot() +
+  geom_tile(aes(x = year, y = month, fill = temp_disc)) +
+  scale_fill_manual(values = palette) +
+  scale_x_continuous(expand = c(0.01,0.01), breaks = seq(1900, 2010, 10)) +
+  guides(fill = FALSE) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "grey40", color = NA),
+        plot.title = element_text(family = "oswald", size = 18, color = txt_clr, hjust = 0.5, face = "bold", margin = margin(10,0,0,0)),
+        axis.text.x = element_text(size = 11, color = "white", family = "roboto", margin = margin(10,0,0,0)),
+        axis.ticks.x = element_line(color = "white"),
+        axis.ticks.length.x = unit(2, "mm"),
+        axis.text.y = element_text(size = 11, color = "white", family = "roboto", hjust = 0.95),
+        plot.margin = margin(0, 0, 0, 0)
+        )
+
+```
+
+```{r yearly}
+
+cty_avg_year <- climate %>%
+  filter(Country %in% c("France")) %>%
+  mutate(year = lubridate::year(dt)) %>%
+  filter(year >=1900 & year < 2000) %>%
+  group_by(Country) %>%
+  summarise(country_avg = mean(AverageTemperature))
+
+climate_gap <- climate %>%
+  filter(Country %in% c("France")) %>%
+  mutate(year = lubridate::year(dt)) %>%
+  filter(year >=1900) %>%
+  group_by(Country, year) %>%
+  summarise(y_avg = mean(AverageTemperature, na.rm = TRUE)) %>%
+  ungroup() %>%
+  left_join(cty_avg_year) %>%
+  mutate(temp_gap = y_avg - country_avg) %>%
+  mutate(temp_disc = map_chr(temp_gap, map_col))
+
+yearly_plt <- ggplot()+
+  as_reference(
+    geom_rect(data = climate_gap, aes(xmin = year, xmax = year+1, ymin = min(temp_gap), ymax = max(temp_gap), fill = temp_disc)) ,
+    id = "strip"
+  )   +
+  scale_fill_manual(values = palette) +
+  with_blend(
+    # the offset of 0.5 is to account for the size of the line
+    geom_line(data = climate_gap, aes(x = year+0.5, y = temp_gap*0.98), size = 2),
+    bg_layer = "strip",
+    blend_type = "pegtop_light"
+  )+
+  scale_y_continuous(limits = c(-1.04, 1.54), expand = c(0, 0)) +
+  scale_x_continuous(breaks = seq(1900.5, 2020.5, 10), expand = c(0.01, 0.01), position = "top")+
+  guides(fill = FALSE) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "grey40", color = NA),
+        plot.margin = margin(10, 20, 120, 20),
+        axis.ticks.x = element_line(color = "white"),
+        axis.ticks.length.x = unit(2, "mm")
+        )
+
+```
+
+```{r legend}
+
+legendpos <- col_range %>%
+  filter(range1 > -6, range1 < 4.5) 
+
+legend_text <- tibble(text = unique(round(c(legendpos$range1, legendpos$range2),1))) %>%
+  mutate(pos = row_number() %% 2 / 2 - 0.3)
+
+legend <- ggplot() +
+  geom_rect(data = legendpos, aes(xmin = range1, xmax = range2, ymin = 0, ymax = 1, fill = col)) +
+  geom_text(data = legend_text, aes(x = text, y = 1.6 + pos, label = glue::glue("{text} °C")), size = 3.5, color = "white", vjust = 0, family = "roboto")+
+  geom_segment(data = legend_text, aes(x = text, xend = text, y = 1, yend = 1.5 + pos), linetype = "13", color = "white") +
+  scale_fill_manual(values = palette) +
+  scale_y_continuous(limits = c(0, 2.5)) +
+  guides(fill = FALSE) +
+  theme_void() 
+
+```
+
+
+```{r assemble}
+
+final <- main / yearly_plt + plot_layout(heights = c(10,2)) + inset_element(legend, 0.1, 0.1, 0.9, 0.45, align_to = "full") +
+  plot_annotation(
+    title = "Temperature evolution in France",
+      caption = "#30DayChartChallenge Day 23 | Viz: Christophe Nicault | Data: Berkeley Earth / Kaggle",
+      theme = theme(
+        plot.background = element_rect(fill = "grey40", color = NA),
+        plot.title = element_text(family = "oswald", size = 20, color = txt_clr, hjust = 0.5, face = "bold", margin = margin(10,0,20,0)),
+        plot.subtitle = element_text(family = "oswald", color = txt_clr, size = 16, hjust = 0.5, margin = margin(10,0,15,0)),
+        plot.caption = element_text(family = "techmono", color = txt_clr, size = 11, hjust = 0.98)      
+      )
+  )
+
+ragg::agg_png(here::here("render", paste0("30DayChartChallenge_day23_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 12, height = 10, units = "in")
+
+final
+  
+dev.off()
+
+```
+
+

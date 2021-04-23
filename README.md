@@ -1,5 +1,31 @@
 # #30DayChartChallenge
 
+## Day 23 - tiles
+
+Temperature evolution in France
+
+![Temperature evolution in France](/day23/day23_tiles.png)
+
+----
+
+## Day 20 - Upward
+
+From tidytuesday week 17
+Evolution of the number of movies and TV shows on Netflix
+
+![Evolution of the number of movies and TV shows on Netflix](https://raw.githubusercontent.com/cnicault/tidytuesday/master/2021/2021-17-Netflix_shows/netflix_shows.png)
+
+----
+
+## Day 19 - Global change
+
+From tidytuesday week 16
+Establishment and discontinuation of US post offices since 1780
+
+![Establishment and discontinuation of US post offices since 1780](https://raw.githubusercontent.com/cnicault/tidytuesday/master/2021/2021-16-post_offices/post_offices.png)
+
+----
+
 ## Day 16 - Strips
 
 Australian Open 2019 Men's Singles
@@ -49,6 +75,14 @@ Age & sex distribution of the medalists in the Summer Olympic Games
 
 ----
 
+## Day 6 - Experimental
+
+From tidytuesday week 15
+Annual changes in forest area over the year
+
+![Annual changes in forest area over the year](https://raw.githubusercontent.com/cnicault/tidytuesday/master/2021/2021-15-global_deforestation/deforestation.png)
+
+----
 ## Day 5 - Historical
 
 Comparison of the ranking between 2011 & 2021 of the programming languages I used
