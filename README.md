@@ -26,7 +26,7 @@ Establishment and discontinuation of US post offices since 1780
 
 ----
 
-## Day 16 - Strips
+## Day 16 - Trees
 
 Australian Open 2019 Men's Singles
 
