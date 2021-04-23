@@ -166,12 +166,13 @@ legend <- ggplot() +
 
 final <- main / yearly_plt + plot_layout(heights = c(10,2)) + inset_element(legend, 0.1, 0.1, 0.9, 0.45, align_to = "full") +
   plot_annotation(
-    title = "Temperature evolution in France",
+      title = "Temperature evolution in France",
+      subtitle = "Temperature deviation from 20th century average.",
       caption = "#30DayChartChallenge Day 23 | Viz: Christophe Nicault | Data: Berkeley Earth / Kaggle",
       theme = theme(
         plot.background = element_rect(fill = "grey40", color = NA),
-        plot.title = element_text(family = "oswald", size = 20, color = txt_clr, hjust = 0.5, face = "bold", margin = margin(10,0,20,0)),
-        plot.subtitle = element_text(family = "oswald", color = txt_clr, size = 16, hjust = 0.5, margin = margin(10,0,15,0)),
+        plot.title = element_text(family = "oswald", size = 20, color = txt_clr, hjust = 0.5, face = "bold", margin = margin(10,0,10,0)),
+        plot.subtitle = element_text(family = "oswald", color = txt_clr, size = 16, hjust = 0.5, margin = margin(0,0,15,0)),
         plot.caption = element_text(family = "techmono", color = txt_clr, size = 11, hjust = 0.98)      
       )
   )
