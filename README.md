@@ -1,6 +1,14 @@
 # #30DayChartChallenge
 
-## Day 23 - tiles
+## Day 24 - Monochrome
+
+Ranking of the top 5 CO2 emitters from burning fuels
+
+![Ranking of the top 5 CO2 emitters from burning fuels](/day24/day24_monochrome.png)
+
+----
+
+## Day 23 - Tiles
 
 Temperature evolution in France
 

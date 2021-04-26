@@ -1,0 +1,134 @@
+---
+title: 'Day 24: time series - Monochrome'
+author: "Christophe Nicault"
+date: "26/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_packages}
+
+library(tidyverse)
+#devtools::install_github("davidsjoberg/ggsankey", ref = "main", force= TRUE)
+library(ggsankey)
+library(ggimage)
+library(ggtext)
+library(showtext)
+
+font_add_google("Roboto Condensed", "roboto condensed")
+font_add_google("Oswald", "oswald")
+font_add_google("Share Tech Mono", "techmono")
+
+showtext_opts(dpi = 320)
+showtext_auto(enable = TRUE)
+
+```
+
+Link to the data :
+https://ourworldindata.org/co2/country/united-states?country=~USA
+
+
+```{r load_data}
+co2 <- read_csv(here::here("input", "CO2-by-source.csv"))
+chimney <- here::here("day24", "img", "chimney_fullgrey.png")
+earth <- here::here("day24", "img", "earth_transparent.png")
+
+```
+
+```{r data_prep}
+
+country_stat <-  co2 %>%
+  filter(Year == 2019) %>%
+  filter(!is.na(Code), Entity != "World") %>%
+  pivot_longer(cols = c(4:9)) %>%
+  group_by(Entity, Code) %>%
+  summarise(total = sum(value, na.rm = TRUE)) %>%
+  ungroup() %>%
+  arrange(desc(total)) %>%
+  mutate(world_total = sum(total),
+         percent = total / world_total,
+         cumperc = cumsum(percent)) 
+
+country_text <-country_stat %>%
+  head(5) %>%
+  arrange(total) %>%
+  mutate(high = cumsum(total),
+         prev = lag(high, default = 0),
+         posy = prev + (high-prev)/2,
+         size = total)  %>%
+  mutate(Entity = ifelse(Code == "USA", "USA", Entity))
+
+country_text <- country_text %>%
+  bind_cols(fsize = c(4, 5, 6, 20, 50))
+
+
+top5 <- country_stat %>%
+  head(5) %>%
+  arrange(total) %>%
+  pull(Code)
+
+pal <- c("#D9D9D9", "#A6A6A6", "#737373", "#404040", "#0D0D0D")
+color_pal <- c()
+color_pal[top5] <- pal
+
+legend <- country_stat %>%
+  mutate(label = glue::glue("{Entity}: {round(total / 1e9, 1)} Bt / {scales::percent(round(percent,4), accuracy = 0.01)} of world emission")) %>%
+  head(5) %>%
+  arrange(total) %>%
+  mutate(posy = 8e9 + row_number() * 1e9) %>%
+  select(Entity, posy, label)
+
+co2_prep <- co2 %>%
+  filter(Code %in% top5) %>%
+  filter(Year > 1938) %>%
+  pivot_longer(cols = c(4:9)) %>%
+  group_by(Year, Entity, Code) %>%
+  summarise(total = sum(value, na.rm = TRUE)) %>%
+  ungroup()
+
+init <- co2_prep %>% 
+  filter(Year == 2019) %>%
+  mutate(Year = 1930,
+         total = 0)
+
+co2_prep <- init %>%
+  bind_rows(co2_prep)
+
+years <- tibble(year = seq(1940,2020, 20))
+
+```
+
+```{r final_plot}
+
+final <- co2_prep %>%
+  ggplot() +
+  geom_image(aes(x = 1932, y = -0.5e9, image = chimney), size = 0.1, asp = 2)+
+  geom_sankey_bump(aes(x = Year, value = total, fill = Code, node = Entity), space = 1e8, type = "alluvial", color = "transparent", smooth = 6) +
+  geom_text(data = country_text, aes(x = 2020, y = posy, label = Entity, size = fsize, color = Code), hjust = 0, lineheight = 0.6, family = "oswald") +
+  geom_text(data = years, aes(x = year, y = -5e8, label = year), family = "roboto condensed", size = 3, color = "#404040") +
+  geom_text(data = legend, aes(x = 1920, y = posy, label = label), family = "roboto condensed", size = 4, color = "#404040", hjust = 0) +
+  geom_image(aes(x = 1929, y = -6e9, image = earth), size = 0.12, asp = 2) +
+  annotate("richtext", x = 1920, y = 20e9, label = "Ranking of the top 5 CO<sub>2</sub> emitters from burning fuels.",family = "oswald", size = 7, fontface = "bold", label.color = NA, hjust = 0) +
+  annotate("richtext", x = 1920, y = 17e9, label = "The 5 top emitters account for 59.3% of the world CO<sub>2</sub> emission.<br> Burning fuels include fossils (coal, oil, gas, flaring) and industry materials such as cement.", family = "oswald", size = 5, lineheight = 1.5, hjust = 0, label.color = NA) +  
+  scale_x_continuous(limits = c(1910, 2060)) +
+  scale_y_continuous(limits = c(-9e9, 22e9)) +
+  scale_fill_manual(values = color_pal) +
+  scale_color_manual(values = color_pal) +
+  scale_size(range = c(4, 50), breaks = c(4, 5, 6, 20, 50), trans = "identity")+
+  labs(
+       caption = "#30DayChartChallenge Day 24 | Viz: Christophe Nicault | Data: Our World in Data") +
+  guides(color = FALSE, fill = FALSE, size = FALSE) +
+  theme_void() +
+  theme(plot.caption = element_text(family = "techmono", color = "#404040",size = 11, hjust = 0.98))
+
+ragg::agg_png(here::here("render", paste0("30DayChartChallenge_day24_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".png")), res = 320, width = 16, height = 8, units = "in")
+
+final
+  
+dev.off()
+
+```
+
