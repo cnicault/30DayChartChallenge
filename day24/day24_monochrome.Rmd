@@ -113,7 +113,7 @@ final <- co2_prep %>%
   geom_image(aes(x = 1929, y = -6e9, image = earth), size = 0.12, asp = 2) +
   annotate("richtext", x = 1920, y = 20e9, label = "Ranking of the top 5 CO<sub>2</sub> emitters from burning fuels.",family = "oswald", size = 7, fontface = "bold", label.color = NA, hjust = 0) +
   annotate("richtext", x = 1920, y = 17e9, label = "The 5 top emitters account for 59.3% of the world CO<sub>2</sub> emission.<br> Burning fuels include fossils (coal, oil, gas, flaring) and industry materials such as cement.", family = "oswald", size = 5, lineheight = 1.5, hjust = 0, label.color = NA) +  
-  scale_x_continuous(limits = c(1910, 2060)) +
+  scale_x_continuous(limits = c(1919, 2060)) +
   scale_y_continuous(limits = c(-9e9, 22e9)) +
   scale_fill_manual(values = color_pal) +
   scale_color_manual(values = color_pal) +
